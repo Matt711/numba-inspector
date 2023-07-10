@@ -67,4 +67,4 @@ increment_by_one[blocks, threads](d_a)
 cuda.synchronize()
 d_a.copy_to_host()
 ```
-![View the PTX of CUDA kernel (CPUDispatcher object example)](./examples/cpu_dispatcher_control_flow.png)
+![View the PTX of CUDA kernel (CPUDispatcher object example)](./examples/cuda_dispatcher.png)
