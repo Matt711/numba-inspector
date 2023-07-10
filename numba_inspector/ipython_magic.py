@@ -7,8 +7,9 @@ import inspect
 from IPython.core import magic_arguments
 from IPython.core.magic import Magics, magics_class, cell_magic
 from IPython.paths import get_ipython_cache_dir
-from numba_inspector.frontend.annotate import Annotate, Annotate2, AnnotateBytecode
+from numba_inspector.frontend.annotate import Annotate, Annotate2, AnnotateBytecode, AnnotatePTX, AnnotatePTXGray
 from functools import cache
+from numba.cuda.dispatcher import CUDADispatcher
 
 @magics_class
 class NumbaMagics(Magics):
@@ -25,6 +26,10 @@ class NumbaMagics(Magics):
     @magic_arguments.argument(
         '-ir', '--numbair', action='store_const', const='default',
         dest='annotate_numba_ir', help="Produce a colorized HTML version of the source."
+    )
+    @magic_arguments.argument(
+        '-ptx', '--ptx', action='store_const', const='default',
+        dest='annotate_ptx', help="Produce a colorized HTML version of the source."
     )
     @cell_magic
     def numba(self, line, cell):
@@ -59,17 +64,31 @@ class NumbaMagics(Magics):
         elif args.annotate_bytecode:
             bytecode_lines = self._get_bytecode_correct_form(numba_functions[0])["bytecode_lines"]
             bytecode_indent = self._get_bytecode_correct_form(numba_functions[0])["bytecode_indent"]
-            # import json
-            # pretty = json.dumps(bytecode_lines, indent=2)
-            # pretty2 = json.dumps(bytecode_indent, indent=2)
-            # # print(pretty)
-            # # print(pretty2)
             ann = AnnotateBytecode(
                 numba_functions[0],
                 python_lines=python_lines,
                 python_indent=python_indents,
                 bytecode_lines=bytecode_lines,
                 bytecode_indent=bytecode_indent
+            )
+            return ann
+        elif args.annotate_ptx:
+            if type(numba_functions[0]) != CUDADispatcher:
+                raise Exception(f"PTX only valid for CUDA kernels of type {CUDADispatcher}")   
+            asm = numba_functions[0].inspect_asm()
+            ptx = next(iter(asm.items()))[1]
+            ptx_lines = self._get_ptx_correct_form(ptx)["ptx_lines"]
+            for i, line in enumerate(ptx_lines[min(ptx_lines)]):
+                if "ld.param" in line:
+                    s = ptx_lines[min(ptx_lines)][i]
+                    ptx_lines[min(ptx_lines)][i] = s.split()[0]+" "+s.split()[1]+" ["+re.findall(r'param_\d+', s)[0]+"]"
+            ptx_indent = self._get_ptx_correct_form(ptx)["ptx_indent"]
+            ann = AnnotatePTXGray(
+                numba_functions[0],
+                python_lines=python_lines,
+                python_indent=python_indents,
+                ptx_lines=ptx_lines,
+                ptx_indent=ptx_indent
             )
             return ann
         ann = Annotate2(
@@ -89,7 +108,6 @@ class NumbaMagics(Magics):
         dis.dis(numba_function)
         sys.stdout = sys.__stdout__
         bytecode_string = output.getvalue()
-        # print(bytecode_string)
 
         bytecode_lines={}
         bytecode_indent={}
@@ -171,3 +189,30 @@ class NumbaMagics(Magics):
             except KeyError:
                 msg = "'module' object has no attribute '%s'" % k
                 raise AttributeError(msg)
+
+    def _get_ptx_correct_form(self, ptx):
+        ptx_lines = ptx.split('\n')
+        where = [(i, x) for i, x in enumerate(ptx.split('\n')) if ".loc" in x]
+        d = {"ptx_lines":{}}
+        for i in range(len(where)-1):
+            ln = int(where[i][1].split()[2])
+            if ln==0:
+                continue
+            if ln not in d["ptx_lines"]:
+                d["ptx_lines"][ln] = []
+                cleaned = [x for x in ptx_lines[where[i][0]+1:where[i+1][0]]]
+                d["ptx_lines"][ln]+="\n".join(cleaned).split('\n')
+            else:
+                cleaned = [x for x in ptx_lines[where[i][0]+1:where[i+1][0]]]
+                d["ptx_lines"][ln]+="\n".join(cleaned).split('\n')
+        dd = {"ptx_lines": {}, "ptx_indent": {}}
+        for k in d["ptx_lines"]:
+            dd["ptx_lines"][k]=[x.strip() for x in d["ptx_lines"][k] if x]
+            dd["ptx_indent"][k]=[4*(len(x)-len(x.lstrip())) for x in d["ptx_lines"][k] if x]
+        dd["ptx_lines"][min(dd["ptx_lines"])].insert(0, "{")
+        dd["ptx_lines"][max(dd["ptx_lines"])].append(ptx_lines[where[-1][0]+1:][:2][0].strip())
+        dd["ptx_lines"][max(dd["ptx_lines"])].append("}")
+        dd["ptx_indent"][min(dd["ptx_lines"])].insert(0, 0)
+        dd["ptx_indent"][max(dd["ptx_lines"])].append(4)
+        dd["ptx_indent"][max(dd["ptx_lines"])].append(0)
+        return dd
