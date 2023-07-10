@@ -38,3 +38,33 @@ def func(x,y):
 
 func(1,2)
 ```
+![View the bytecode of a jitted function (CPUDispatcher object)](./examples/cpu_dispatcher_control_flow.png)
+
+```python
+%%numba --ptx
+
+from numba import cuda
+import numpy as np
+
+@cuda.jit(lineinfo=True)
+def increment_by_one(an_array):
+    # Thread id in a 1D block
+    tx = cuda.threadIdx.x
+    # Block id in a 1D grid
+    ty = cuda.blockIdx.x
+    # Block width, i.e. number of threads per block
+    bw = cuda.blockDim.x
+    # Compute flattened index inside the array
+    pos = tx + ty * bw
+    if pos < an_array.size:  # Check array boundaries
+        an_array[pos] += 1
+        
+a = np.arange(4096,dtype=np.float32)
+d_a = cuda.to_device(a)
+blocks = 32
+threads = 128
+increment_by_one[blocks, threads](d_a)
+cuda.synchronize()
+d_a.copy_to_host()
+```
+![View the PTX of CUDA kernel (CPUDispatcher object example)](./examples/cpu_dispatcher_control_flow.png)
