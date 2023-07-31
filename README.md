@@ -1,5 +1,5 @@
 # numba-inspector
-View Numba compiled code in Jupyter
+Visualize and Debug Numba compiled code in Jupyter
 
 ## Quickstart
 
@@ -40,6 +40,12 @@ def func(x,y):
 func(1,2)
 ```
 ![View the bytecode of a jitted function (CPUDispatcher object)](./examples/cpu_dispatcher_control_flow.png)
+
+
+Install the cudatoolkit:
+```console
+conda install cudatoolkit
+```
 
 ```python
 %%numba --ptx
