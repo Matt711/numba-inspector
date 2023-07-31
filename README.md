@@ -39,7 +39,7 @@ def func(x,y):
 
 func(1,2)
 ```
-![View the bytecode of a jitted function (CPUDispatcher object)](./examples/cpu_dispatcher_control_flow.png)
+![View the bytecode of a jitted function (CPUDispatcher object)](https://raw.githubusercontent.com/Matt711/numba-inspector/main/examples/cpu_dispatcher_control_flow.png)
 
 
 Install the cudatoolkit:
@@ -74,4 +74,4 @@ increment_by_one[blocks, threads](d_a)
 cuda.synchronize()
 d_a.copy_to_host()
 ```
-![View the PTX of CUDA kernel (CPUDispatcher object example)](./examples/cuda_dispatcher.png)
+![View the PTX of CUDA kernel (CPUDispatcher object example)](https://raw.githubusercontent.com/Matt711/numba-inspector/main/examples/cuda_dispatcher.png)
