@@ -5,9 +5,9 @@ View Numba compiled code in Jupyter
 
 ### Installation
 
-Fork then clone the repository:
+Install the package:
 ```console
-$ git clone git@github.com:<username>/numba-inspector.git
+pip install numba-inspector
 ```
 
 ### %%numba magic command
